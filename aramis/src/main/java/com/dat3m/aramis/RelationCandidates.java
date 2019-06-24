@@ -5,13 +5,22 @@
  */
 package com.dat3m.aramis;
 
+import static com.dat3m.aramis.Aramis.alias;
+import static com.dat3m.aramis.Aramis.ctx;
+import static com.dat3m.aramis.Aramis.mode;
 import com.dat3m.aramis.wmm.CandidateAxiom;
-import com.dat3m.aramis.wmm.TemplateRelation;
+import com.dat3m.dartagnan.wmm.relation.binary.TemplateRelation;
 import com.dat3m.dartagnan.program.Program;
 import com.dat3m.dartagnan.program.event.Event;
+import com.dat3m.dartagnan.utils.Utils;
+import com.dat3m.dartagnan.wmm.Execution;
 import com.dat3m.dartagnan.wmm.Wmm;
+import com.dat3m.dartagnan.wmm.axiom.Acyclic;
 import com.dat3m.dartagnan.wmm.relation.Relation;
-import com.dat3m.dartagnan.wmm.relation.basic.BasicRelation;
+import com.dat3m.dartagnan.wmm.relation.binary.RelIntersection;
+import com.dat3m.dartagnan.wmm.relation.binary.RelUnion;
+import com.dat3m.dartagnan.wmm.relation.binary.TemplateExecRelation;
+import com.dat3m.dartagnan.wmm.utils.RelationRepository;
 import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Model;
 import com.microsoft.z3.Solver;
@@ -27,20 +36,23 @@ import java.util.logging.Logger;
  *
  * @author Florian Furbach
  */
-public class ListOfRels {
+public class RelationCandidates {
 
     private final ArrayList<CandidateAxiom> candidates = new ArrayList<>();
-    private final Logger log = Logger.getLogger(ListOfRels.class.getName());
+    private final Logger log = Logger.getLogger(RelationCandidates.class.getName());
     public int unchecked = 0;
-    public static String baserels[] = {"po", "co", "fr", "rf", "poloc", "rfe", "WR", "mfence"};
+    //public static String baserels[] = {"po", "co", "fr", "rf", "poloc", "rfe", "WR", "mfence"};
+    public static String baserels[] = {"po", "co", "fr", "rf"};
+
     //cegis:
     private CandidateAxiom templateAx;
     private int templateLevel = 2;
     private TemplateRelation template;
     private int exID = 0;
     private String oldexec = "";
+    private Execution exec;
 
-    public ListOfRels() {
+    public RelationCandidates() {
         log.setLevel(Level.FINEST);
         //java.util.logging.ConsoleHandler.level=Level.ALL;
         //log.getHandlers()[0].setLevel( Level.FINEST );
@@ -48,7 +60,6 @@ public class ListOfRels {
             h.setLevel(Level.FINEST);
             log.info("handler: "+h.toString());
         }
-        
         
         //ConsoleHandler handler = new ConsoleHandler();
 
@@ -74,10 +85,11 @@ public class ListOfRels {
             templateAx = new CandidateAxiom(template);
             Solver s = Aramis.solCEGIS;
             s.push();
+            Wmm model=new Wmm();
+            model.addAxiom(templateAx);
             for (Program posProgram : Aramis.posPrograms) {
-                Set<Event> events = posProgram.getMemEvents();
-                s.add(template.encode(posProgram, Aramis.ctx, new HashSet<String>()));
-                s.add(templateAx.consistent(events, Aramis.ctx));
+                s.add(model.encode(posProgram, ctx, mode, alias));
+                s.add(model.consistent(posProgram, ctx));
             }
             //call CEGIS loop:
             addCandidatesCEGIS(0);
@@ -98,40 +110,45 @@ public class ListOfRels {
         //choose a program in NEG that we want to fail.
         for (int i = currentProg+1; i < Aramis.negPrograms.size(); i++) {
             Aramis.solCEGIS.push();;
-                log.fine("Processing NEG program " + Aramis.negPrograms.get(i).name);
+                log.fine("Processing NEG program " + Aramis.negPrograms.get(i).getName());
                 //TODO: Tryout: Do we want to add that there is one inconsistent execution of P-?
                 //Aramis.solCEGIS.add(Aramis.negExprs.get(i));
-                Set<Event> events = Aramis.negPrograms.get(i).getMemEvents();
                 //Aramis.solCEGIS.add(templateAx.Inconsistent(events, Aramis.ctx));
                 while (Aramis.solCEGIS.check() == Status.SATISFIABLE) {
                     //Get the generated relation from the solution
                     Relation generatedRel = template.getSolution(Aramis.solCEGIS, Aramis.ctx);
-                    log.info("generated relation " + generatedRel.write());
+                    log.info("generated relation " + generatedRel.toString());
                     //TODO: Try adding all of the generated relations.
                     //Try whether P- succeeds with the generated relation.
-                    Wmm tempmodel = new Wmm();
-                    tempmodel.addAxiom(new CandidateAxiom(generatedRel));
+                    Wmm generatedModel = new Wmm();
+                    generatedModel.addAxiom(new CandidateAxiom(generatedRel, true));
                     Program p = Aramis.negPrograms.get(i);
                     Solver s = Aramis.solvers.get(p);
                     s.push();
-                    s.add(tempmodel.encode(p, Aramis.ctx));
-                    s.add(tempmodel.Consistent(p, Aramis.ctx));
+                    s.add(generatedModel.encode(p, Aramis.ctx,mode,alias));
+                    s.add(generatedModel.consistent(p, Aramis.ctx));
                     Status sat = s.check();
                     if (sat == Status.SATISFIABLE) {
                         //encode execution to be avoided:
-                        String prefix = "E" + String.valueOf(exID) + ":";
                         //log.info("Adding new execution " + prefix);
-                        Model m = s.getModel();
-                        Aramis.solCEGIS.add(encodeExec(prefix,m, p));
+                        exec=new Execution(s.getModel(), ctx);
+                        log.info(exec.toString());
+                        if (exec.toString().contentEquals(oldexec)) System.err.println("Execution didnt change!");
+                        oldexec = exec.toString();
+                        
+                        TemplateExecRelation execrel=new TemplateExecRelation(template, exec);
+                        Wmm execmodel=new Wmm();
+                        execmodel.addAxiom(new Acyclic(execrel, true));
+                        Aramis.solCEGIS.add(execmodel.encode(p, ctx, mode, alias));
+                        Aramis.solCEGIS.add(execmodel.consistent(p, ctx));
                         //make sure execution is inconsistent:
                         //BoolExpr temp=template.Inconsistent(prefix, p, Aramis.ctx);
                         //log.info(temp.toString());
-                        Aramis.solCEGIS.add(template.Inconsistent(prefix, p, Aramis.ctx));
                         exID++;
                         s.pop();
 
                     } else {
-                        log.info("No consistent executions found, adding "+generatedRel.write());
+                        log.info("No consistent executions found, adding "+generatedRel.toString());
                         s.pop();
 
                         add(generatedRel);
@@ -147,6 +164,7 @@ public class ListOfRels {
 
     }
 
+    
     private BoolExpr encodeExec(String prefix, Model m, Program p) {
         //encode execution to be avoided:
         log.info("Adding new execution " + prefix);
@@ -202,10 +220,14 @@ public class ListOfRels {
      */
     public void addBasicrels() {
         log.fine("Adding basic relations...");
-        Aramis.checkCandidate(add(new BasicRelation("co")));
-        Aramis.checkCandidate(add(new BasicRelation("po")));
-        Aramis.checkCandidate(add(new BasicRelation("fr")));
-        Aramis.checkCandidate(add(new BasicRelation("rf")));
+        RelationRepository rep=new RelationRepository();
+        for (String baserel : baserels) {
+            Aramis.checkCandidate(add(rep.getRelation(baserel)));
+        }
+//        Aramis.checkCandidate(add(new BasicRelation("co")));
+//        Aramis.checkCandidate(add(new BasicRelation("po")));
+//        Aramis.checkCandidate(add(new BasicRelation("fr")));
+//        Aramis.checkCandidate(add(new BasicRelation("rf")));
         //add(new BasicRelation("poloc"));
         //add(new BasicRelation("mfence"));
         //add(new BasicRelation("rfe"));
@@ -256,8 +278,8 @@ public class ListOfRels {
 
                 CandidateAxiom inter = null;
                 //intersections are always added from the left and have no unions nested inside.
-                if (!(r2 instanceof RelInterSect) && !(r2 instanceof RelUnion) && !(r1 instanceof RelUnion)) {
-                    inter = add(new RelInterSect(r1, r2));
+                if (!(r2 instanceof RelIntersection) && !(r2 instanceof RelUnion) && !(r1 instanceof RelUnion)) {
+                    inter = add(new RelIntersection(r1, r2));
                     inter.smallerthan(c1);
                     inter.smallerthan(c2);
                     Aramis.checkCandidate(inter);

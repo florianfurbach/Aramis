@@ -42,7 +42,7 @@ public class Aramis {
     private static CandidateAxiom[] lastNegCandidates;
     public static Mode mode;
     public static Alias alias;
-    private static final ListOfRels candidates = new ListOfRels();
+    private static final RelationCandidates candidates = new RelationCandidates();
     public static ArrayList<Program> posPrograms;
     public static ArrayList<Program> negPrograms;
     private static int nrOfEvents=0;
@@ -52,7 +52,7 @@ public class Aramis {
     protected static final Context ctx = new Context();
     private static int[] current;
     private static Wmm ModelCandidate;
-    private static CandidateModel model = new CandidateModel();
+    private static final CandidateModel model = new CandidateModel();
     //private static ArrayList<CandidateAxiom> currentAxioms;
     public static Solver solCEGIS;
     public static ArrayList<BoolExpr> negExprs;
@@ -160,6 +160,8 @@ public class Aramis {
         
         Option modeOption = new Option("m", "mode", true, "Encoding mode {knastertarski|idl|kleene}");
         options.addOption(modeOption);
+        
+        
         
         CommandLine cmd;
         try {

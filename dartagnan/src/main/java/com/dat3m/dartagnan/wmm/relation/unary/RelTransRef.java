@@ -84,7 +84,7 @@ public class RelTransRef extends RelTrans {
     }
 
     @Override
-    protected BoolExpr encodeApprox() {
+    public BoolExpr encodeApprox() {
         return invokeEncode("encodeApprox");
     }
 

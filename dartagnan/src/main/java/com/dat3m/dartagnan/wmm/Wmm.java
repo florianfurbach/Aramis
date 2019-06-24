@@ -32,6 +32,12 @@ public class Wmm {
     private boolean drawExecutionGraph = false;
     private Set<String> drawRelations = new HashSet<>();
 
+    public List<Axiom> getAxioms() {
+        return axioms;
+    }
+
+    
+    
     public Wmm() {
         relationRepository = new RelationRepository();
     }

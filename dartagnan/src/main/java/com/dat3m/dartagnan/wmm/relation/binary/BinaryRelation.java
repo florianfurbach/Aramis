@@ -23,7 +23,7 @@ public abstract class BinaryRelation extends Relation {
         this.r2 = r2;
     }
 
-    BinaryRelation(Relation r1, Relation r2, String name) {
+    public BinaryRelation(Relation r1, Relation r2, String name) {
         super(name);
         this.r1 = r1;
         this.r2 = r2;

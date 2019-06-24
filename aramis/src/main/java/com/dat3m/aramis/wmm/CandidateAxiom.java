@@ -8,6 +8,7 @@ package com.dat3m.aramis.wmm;
 import com.dat3m.aramis.Aramis;
 import com.dat3m.dartagnan.wmm.axiom.Acyclic;
 import com.dat3m.dartagnan.wmm.relation.Relation;
+import com.dat3m.dartagnan.wmm.utils.TupleSet;
 
 /**
  *
@@ -15,16 +16,6 @@ import com.dat3m.dartagnan.wmm.relation.Relation;
  */
 public class CandidateAxiom extends Acyclic {
 
-    //denotes whether the axiom fails a Neg test.
-
-    /**
-     * Creates an acyclic Axiom that has additional information regarding its behaviour towards the reachability
-     * @param rel
-     */
-    public CandidateAxiom(Relation rel) {
-                super(rel);
-    }
-    
     public Consistent[] pos=new Consistent[Aramis.posPrograms.size()];
     public Consistent[] neg=new Consistent[Aramis.negPrograms.size()];
     //public HashMap<Program, Boolean> consProg = new HashMap<>();
@@ -32,7 +23,12 @@ public class CandidateAxiom extends Acyclic {
     public boolean consistent=false;
     public int position;
     public CandidateAxiom[] next=new CandidateAxiom[Aramis.negPrograms.size()];
+        //denotes whether the axiom fails a Neg test.
+
     public boolean relevant=false;
+    //when encoding a relation generated from a templaterelation to find an exec, 
+    //we need to encode the whole relation for not just what we need this time.
+    private boolean generatedRel=false;
     
     public void largerthan(CandidateAxiom ax){
         for (int i = 0; i < pos.length; i++) {
@@ -44,6 +40,31 @@ public class CandidateAxiom extends Acyclic {
         for (int i = 0; i < neg.length; i++) {
             if(ax.neg[i]==Consistent.INCONSISTENT) neg[i]=ax.neg[i];
         }        
+    }
+    
+    /**
+     * Creates an acyclic Axiom that has additional information regarding its behaviour towards the reachability
+     * @param rel
+     */
+    public CandidateAxiom(Relation rel) {
+                super(rel);
+    }
+    
+    /**
+     * Creates an acyclic Axiom that has additional information regarding its behaviour towards the reachability
+     * @param rel
+     * @param generated denotes whether the relation is generated and needs to be encoded for all may pairs in order to get all necessary tuples for creating the execution.
+     * 
+     */
+    public CandidateAxiom(Relation rel, boolean generated) {
+                super(rel);
+                this.generatedRel=generated;
+    }
+
+    @Override
+    public TupleSet getEncodeTupleSet() {
+        if(generatedRel) return rel.getMaxTupleSet();
+        else return super.getEncodeTupleSet(); 
     }
     
     

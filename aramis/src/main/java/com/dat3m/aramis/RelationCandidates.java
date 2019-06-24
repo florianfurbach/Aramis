@@ -18,8 +18,11 @@ import com.dat3m.dartagnan.wmm.Wmm;
 import com.dat3m.dartagnan.wmm.axiom.Acyclic;
 import com.dat3m.dartagnan.wmm.relation.Relation;
 import com.dat3m.dartagnan.wmm.relation.binary.RelIntersection;
+import com.dat3m.dartagnan.wmm.relation.binary.RelMinus;
 import com.dat3m.dartagnan.wmm.relation.binary.RelUnion;
 import com.dat3m.dartagnan.wmm.relation.binary.TemplateExecRelation;
+import com.dat3m.dartagnan.wmm.relation.unary.RelTrans;
+import com.dat3m.dartagnan.wmm.relation.unary.RelTransRef;
 import com.dat3m.dartagnan.wmm.utils.RelationRepository;
 import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Model;
@@ -41,7 +44,7 @@ public class RelationCandidates {
     private final ArrayList<CandidateAxiom> candidates = new ArrayList<>();
     private final Logger log = Logger.getLogger(RelationCandidates.class.getName());
     public int unchecked = 0;
-    //public static String baserels[] = {"po", "co", "fr", "rf", "poloc", "rfe", "WR", "mfence"};
+    private static String bigbaserels[] = {"po", "co", "fr", "rf", "poloc", "rfe", "WR", "mfence"};
     public static String baserels[] = {"po", "co", "fr", "rf"};
 
     //cegis:
@@ -224,15 +227,6 @@ public class RelationCandidates {
         for (String baserel : baserels) {
             Aramis.checkCandidate(add(rep.getRelation(baserel)));
         }
-//        Aramis.checkCandidate(add(new BasicRelation("co")));
-//        Aramis.checkCandidate(add(new BasicRelation("po")));
-//        Aramis.checkCandidate(add(new BasicRelation("fr")));
-//        Aramis.checkCandidate(add(new BasicRelation("rf")));
-        //add(new BasicRelation("poloc"));
-        //add(new BasicRelation("mfence"));
-        //add(new BasicRelation("rfe"));
-        //add(new BasicRelation("WR")));
-
     }
 
     /**
@@ -248,21 +242,22 @@ public class RelationCandidates {
             Relation r1 = c1.getRel();
 
             //Applying unary operations:
-//            if (!(r1 instanceof RelTransRef)) {
-//                CandidateAxiom ax=add(new RelTransRef(r1));
-//                ax.largerthan(c1);
-//                Aramis.checkCandidate(ax);
-//            }
+            if (!(r1 instanceof RelTransRef)&& !(r1 instanceof RelTrans)) {
+                CandidateAxiom ax=add(new RelTransRef(r1));
+                ax.largerthan(c1);
+                Aramis.checkCandidate(ax);
+            }
 //            if (!(r1 instanceof RelTransRef) && !(r1 instanceof RelTrans)) {
 //                CandidateAxiom ax=add(new RelTrans(r1));
 //                ax.largerthan(c1);
 //                Aramis.checkCandidate(ax);
 //            }
-//            if (!(r1 instanceof RelMinus)) {
-//                CandidateAxiom ax = add(new RelMinus(r1, new BasicRelation("WR")));
-//                ax.smallerthan(c1);
-//                Aramis.checkCandidate(ax);
-//            }
+            
+            if (!(r1 instanceof RelMinus)) {
+                CandidateAxiom ax = add(new RelMinus(r1, new RelationRepository().getRelation("WR")));
+                ax.smallerthan(c1);
+                Aramis.checkCandidate(ax);
+            }
             //Applying binary operators:
             for (int i = 0; i < j; i++) {
                 CandidateAxiom c2 = candidates.get(i);
@@ -276,10 +271,9 @@ public class RelationCandidates {
                     Aramis.checkCandidate(union);
                 }
 
-                CandidateAxiom inter = null;
                 //intersections are always added from the left and have no unions nested inside.
                 if (!(r2 instanceof RelIntersection) && !(r2 instanceof RelUnion) && !(r1 instanceof RelUnion)) {
-                    inter = add(new RelIntersection(r1, r2));
+                    CandidateAxiom inter = add(new RelIntersection(r1, r2));
                     inter.smallerthan(c1);
                     inter.smallerthan(c2);
                     Aramis.checkCandidate(inter);

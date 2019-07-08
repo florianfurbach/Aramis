@@ -14,6 +14,7 @@ import com.dat3m.dartagnan.wmm.relation.Relation;
 import com.dat3m.dartagnan.wmm.relation.basic.TemplateBasicRelation;
 import com.dat3m.dartagnan.wmm.relation.unary.RelTransRef;
 import com.dat3m.dartagnan.wmm.utils.Mode;
+import com.dat3m.dartagnan.wmm.utils.RelationRepository;
 import com.dat3m.dartagnan.wmm.utils.Tuple;
 import com.dat3m.dartagnan.wmm.utils.TupleSet;
 import com.microsoft.z3.BoolExpr;
@@ -53,20 +54,25 @@ private static Map<Program, TupleSet> MaySets=new HashMap<Program, TupleSet>();
         else return new TemplateRelation(new TemplateBasicRelation(),new TemplateBasicRelation());
     }    
     
-    public Relation getSolution(Solver s,Context ctx){
+    public Relation getSolution(Solver s, RelationRepository rep, Context ctx){
         Model m=s.getModel();
         Relation rel1,rel2;
-        if(r1 instanceof TemplateRelation)rel1=((TemplateRelation) r1).getSolution(s,ctx);
+        if(r1 instanceof TemplateRelation)rel1=((TemplateRelation) r1).getSolution(s,rep,ctx);
         else rel1=((TemplateBasicRelation)r1).getSolution(s, ctx);
-        if(r2 instanceof TemplateRelation)rel2=((TemplateRelation) r2).getSolution(s,ctx);
-        else rel2=((TemplateBasicRelation)r2).getSolution(s, ctx);        
-        if(m.eval(unionexp, true).isTrue()) return new RelUnion(rel1, rel2);
-        if(m.eval(interexp, true).isTrue()) return new RelIntersection(rel1, rel2);
-        if(m.eval(compexp, true).isTrue()) return new RelComposition(rel1, rel2);
-        if(m.eval(transrefexp, true).isTrue()) return new RelTransRef(rel1);
-        if(m.eval(idexp, true).isTrue()) return rel1;
-        System.err.println("could not find Solution for TemplateRelation "+name);
-        return null;
+        if(r2 instanceof TemplateRelation)rel2=((TemplateRelation) r2).getSolution(s,rep,ctx);
+        else rel2=((TemplateBasicRelation)r2).getSolution(s, ctx);  
+        Relation temp = null;
+        if(m.eval(unionexp, true).isTrue()) temp=new RelUnion(rel1, rel2);
+        if(m.eval(interexp, true).isTrue()) temp=new RelIntersection(rel1, rel2);
+        if(m.eval(compexp, true).isTrue()) temp=new RelComposition(rel1, rel2);
+        if(m.eval(transrefexp, true).isTrue()) temp=new RelTransRef(rel1);
+        if(m.eval(idexp, true).isTrue()) temp= rel1;
+        if(temp==null) System.err.println("could not find Solution for TemplateRelation "+name);
+        else {
+            if(rep.getRelation(temp.getName())==null)
+                rep.updateRelation(temp);
+        }
+        return temp;
     }
     
     protected String getID(){
@@ -81,29 +87,28 @@ private static Map<Program, TupleSet> MaySets=new HashMap<Program, TupleSet>();
         RelUnion union=new RelUnion(r1, r2, name);
         BoolExpr enc;
         unionexp=ctx.mkBoolConst("union"+getID());
-        enc = ctx.mkAnd(unionexp, union.encode());
-        
+        enc = ctx.mkAnd(unionexp, union.encode(program, maxTupleSet, ctx, Mode.KNASTER));
         //inter:
         RelIntersection inter=new RelIntersection(r1, r2, name);
         interexp= ctx.mkBoolConst("inter"+getID());
-        enc = ctx.mkOr(ctx.mkAnd(ctx.mkNot(interexp),enc), ctx.mkAnd(interexp, inter.encodeApprox()));
+        enc = ctx.mkOr(ctx.mkAnd(ctx.mkNot(interexp),enc), ctx.mkAnd(interexp, inter.encode(program, maxTupleSet, ctx, Mode.KNASTER)));
        
         //comp:
         RelComposition comp=new RelComposition(r1, r2, name);
         compexp= ctx.mkBoolConst("comp"+getID());
-        enc = ctx.mkOr(ctx.mkAnd(ctx.mkNot(compexp),enc), ctx.mkAnd(compexp, comp.encodeApprox()));
+        enc = ctx.mkOr(ctx.mkAnd(ctx.mkNot(compexp),enc), ctx.mkAnd(compexp, comp.encode(program, maxTupleSet, ctx, Mode.KNASTER)));
         
         //RelTransRef:
         RelTransRef transref=new RelTransRef(r1, name);
         transrefexp= ctx.mkBoolConst("transref"+getID());
         transref.initialise(program, ctx, Mode.IDL);
-        enc = ctx.mkOr(ctx.mkAnd(ctx.mkNot(transrefexp),enc), ctx.mkAnd(transrefexp, transref.encodeApprox()));
+        enc = ctx.mkOr(ctx.mkAnd(ctx.mkNot(transrefexp),enc), ctx.mkAnd(transrefexp, transref.encode(program, maxTupleSet, ctx, Mode.KNASTER)));
         
         //id:
         idexp= ctx.mkBoolConst("id"+getID());
         
             BoolExpr enc2=ctx.mkTrue();
-        for(Tuple tuple : getEncodeTupleSet()) {
+        for(Tuple tuple : getMaxTupleSet()) {
             enc2 = ctx.mkAnd(enc2, ctx.mkEq(Utils.edge(getName(), tuple.getFirst(), tuple.getSecond(), ctx), 
                     Utils.edge(r1.getName(), tuple.getFirst(), tuple.getSecond(), ctx)));                                
         }        
@@ -115,6 +120,8 @@ private static Map<Program, TupleSet> MaySets=new HashMap<Program, TupleSet>();
     protected Map<Event, Set<Event>> getBasictransmaysets(){
         return TemplateBasicRelation.getMaySets().get(program).transMap();
     }
+    
+    
     
     @Override
     public TupleSet getMaxTupleSet() {
@@ -135,5 +142,14 @@ private static Map<Program, TupleSet> MaySets=new HashMap<Program, TupleSet>();
         }
         return MaySets.get(program);    
     }
+
+    @Override
+    public void addEncodeTupleSet(TupleSet tuples) {
+        encodeTupleSet=maxTupleSet;
+        r1.addEncodeTupleSet(maxTupleSet);
+        r2.addEncodeTupleSet(maxTupleSet);
+    }
+    
+    
 
 }

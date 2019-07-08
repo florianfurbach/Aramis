@@ -13,8 +13,9 @@ import static com.dat3m.aramis.Aramis.mode;
 import static com.dat3m.aramis.Aramis.negPrograms;
 import static com.dat3m.aramis.Aramis.posPrograms;
 import static com.dat3m.aramis.Aramis.solvers;
-import com.dat3m.aramis.wmm.Consistent;
+import com.dat3m.dartagnan.wmm.Consistent;
 import com.dat3m.dartagnan.program.Program;
+import com.dat3m.dartagnan.wmm.CandidateModel;
 import com.dat3m.dartagnan.wmm.Wmm;
 import com.microsoft.z3.Solver;
 import com.microsoft.z3.Status;
@@ -27,7 +28,7 @@ import java.util.logging.Level;
 public class StaticSynthesis {
 
     private static int[] current;
-    protected static Wmm ModelCandidate;
+    protected static CandidateModel ModelCandidate;
 
     protected static Wmm start(int nrOfAxioms, boolean cegis) {
         current = new int[nrOfAxioms];
@@ -84,7 +85,7 @@ public class StaticSynthesis {
      * @return
      */
     private static boolean checkStaticCurrent() {
-        ModelCandidate = new Wmm();
+        ModelCandidate = new CandidateModel(RelationCandidates.getRepository(), negPrograms.size());
         for (int i : current) {
             ModelCandidate.addAxiom(candidates.get(i));
         }
@@ -103,7 +104,7 @@ public class StaticSynthesis {
                 Log.finer("Checking neg " + p.getName());
                 Solver s = solvers.get(p);
                 s.push();
-                s.add(ModelCandidate.encode(p, ctx, mode, alias));
+                s.add(ModelCandidate.encode(p, RelationCandidates.getMaxpairs(), ctx, mode, alias));
                 s.add(ModelCandidate.consistent(p, ctx));
                 Status sat = s.check();
                 s.pop();
@@ -117,7 +118,7 @@ public class StaticSynthesis {
             Log.finer("Checking pos " + p.getName());
             Solver s = solvers.get(p);
             s.push();
-            s.add(ModelCandidate.encode(p, ctx, mode, alias));
+            s.add(ModelCandidate.encode(p, RelationCandidates.getMaxpairs(), ctx, mode, alias));
             s.add(ModelCandidate.consistent(p, ctx));
             Status sat = s.check();
             s.pop();

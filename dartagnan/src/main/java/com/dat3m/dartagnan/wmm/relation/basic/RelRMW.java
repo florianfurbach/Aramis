@@ -17,6 +17,8 @@ import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Context;
 
 import static com.dat3m.dartagnan.utils.Utils.edge;
+import com.dat3m.dartagnan.wmm.relation.Relation;
+import java.util.Map;
 
 public class RelRMW extends BasicRelation {
 
@@ -44,6 +46,15 @@ public class RelRMW extends BasicRelation {
         this.baseMaxTupleSet = null;
     }
 
+    @Override
+    public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode) {
+        super.initialise(program, ctx, mode);
+        this.baseMaxTupleSet = null;
+        getMaxTupleSet();
+    }
+
+    
+    
     @Override
     public TupleSet getMaxTupleSet(){
         if(maxTupleSet == null){

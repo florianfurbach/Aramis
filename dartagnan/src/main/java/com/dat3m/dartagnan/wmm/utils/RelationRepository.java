@@ -75,7 +75,7 @@ public class RelationRepository {
     }
 
     private void addRelation(Relation relation) {
-        relationMap.put(relation.getTerm(), relation);
+         relationMap.put(relation.getTerm(), relation);
         if(relation.getIsNamed()){
             relationMap.put(relation.getName(), relation);
         }

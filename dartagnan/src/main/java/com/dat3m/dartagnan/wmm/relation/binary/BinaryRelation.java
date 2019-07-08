@@ -6,6 +6,7 @@ import com.microsoft.z3.Context;
 import com.dat3m.dartagnan.program.Program;
 import com.dat3m.dartagnan.wmm.relation.Relation;
 import com.dat3m.dartagnan.wmm.utils.TupleSet;
+import java.util.Map;
 
 /**
  *
@@ -46,6 +47,15 @@ public abstract class BinaryRelation extends Relation {
         lastEncodedIteration = -1;
     }
 
+    @Override
+    public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode) {
+        r1.initialise(program, maxpairs, ctx, mode);
+        r2.initialise(program, maxpairs, ctx, mode);
+        super.initialise(program, maxpairs, ctx, mode); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    
+    
     @Override
     public void addEncodeTupleSet(TupleSet tuples){
         TupleSet activeSet = new TupleSet();

@@ -23,20 +23,18 @@ public class Wmm {
 
     private final static ImmutableSet<String> baseRelations = ImmutableSet.of("co", "rf", "idd", "addrDirect", "rmw");
 
-    private List<Axiom> axioms = new ArrayList<>();
-    private Map<String, FilterAbstract> filters = new HashMap<>();
-    private RelationRepository relationRepository;
-    private List<RecursiveGroup> recursiveGroups = new ArrayList<>();
+    List<Axiom> axioms = new ArrayList<>();
+    Map<String, FilterAbstract> filters = new HashMap<>();
+    RelationRepository relationRepository;
+    List<RecursiveGroup> recursiveGroups = new ArrayList<>();
 
-    private Program program;
-    private boolean drawExecutionGraph = false;
-    private Set<String> drawRelations = new HashSet<>();
+    Program program;
+    boolean drawExecutionGraph = false;
+    Set<String> drawRelations = new HashSet<>();
 
     public List<Axiom> getAxioms() {
         return axioms;
     }
-
-    
     
     public Wmm() {
         relationRepository = new RelationRepository();

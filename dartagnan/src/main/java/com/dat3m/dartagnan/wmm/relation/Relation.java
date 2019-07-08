@@ -11,6 +11,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static com.dat3m.dartagnan.utils.Utils.edge;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
@@ -64,7 +66,40 @@ public abstract class Relation {
         this.isEncoded = false;
         encodeTupleSet = new TupleSet();
     }
-
+    
+    /**
+     * Initializes the relation with a given maxTupleSet, this is used by Aramis where we switch programs often and we want to avoid recomputing it.
+     * @param program
+     * @param maxTupleSet
+     * @param ctx
+     * @param mode
+     */
+    public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode){
+        this.initialise(program, ctx, mode);
+        if(maxpairs.get(this)==null) maxpairs.put(this, new HashMap<>());
+        if(maxpairs.get(this).get(program)==null)maxpairs.get(this).put(program, this.getMaxTupleSet());
+        this.maxTupleSet = maxpairs.get(this).get(program);
+        this.isEncoded = false;
+        encodeTupleSet = new TupleSet();
+    }
+    
+    public BoolExpr encode(Program p, TupleSet set, Context ctx, Mode mode){
+        Program ptemp=this.program;
+        Context ctxtemp=this.ctx;
+        TupleSet encodedtemp=this.encodeTupleSet;
+        Mode mtemp=this.mode;
+        this.program=p;
+        this.ctx=ctx;
+        this.mode=mode;
+        this.encodeTupleSet=set;
+        BoolExpr value=this.encode();
+        this.program=ptemp;
+        this.ctx=ctxtemp;
+        this.mode=mode;
+        this.encodeTupleSet=encodedtemp;
+        return value;
+    }
+    
     public abstract TupleSet getMaxTupleSet();
 
     public TupleSet getMaxTupleSetRecursive(){

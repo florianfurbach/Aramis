@@ -9,11 +9,13 @@ import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Context;
 import com.dat3m.dartagnan.asserts.AbstractAssert;
 import com.dat3m.dartagnan.program.event.Event;
+import com.dat3m.dartagnan.program.event.MemEvent;
 import com.dat3m.dartagnan.program.event.utils.RegWriter;
 import com.dat3m.dartagnan.program.memory.Location;
 import com.dat3m.dartagnan.program.memory.Memory;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Program {
 
@@ -27,6 +29,7 @@ public class Program {
     private ThreadCache cache;
     private boolean isUnrolled;
     private boolean isCompiled;
+    private Set<Event> memevents;
 
     public Program(Memory memory, ImmutableSet<Location> locations){
         this("", memory, locations);
@@ -110,6 +113,15 @@ public class Program {
 		return events;
 	}
 
+        public Set<Event> getMemEvents() {
+        if(memevents==null){
+                memevents=new HashSet<Event>();
+		for(Thread t : threads){
+			memevents.addAll(t.getCache().getEvents(FilterBasic.get(EType.MEMORY)));
+		}            
+                return memevents;
+        }else return memevents;
+    }
 
     // Unrolling
     // -----------------------------------------------------------------------------------------------------------------

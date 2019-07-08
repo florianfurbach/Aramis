@@ -5,20 +5,11 @@
  */
 package com.dat3m.dartagnan.wmm.relation.binary;
 
-import com.dat3m.dartagnan.program.Program;
 import com.dat3m.dartagnan.program.event.Event;
-import com.dat3m.dartagnan.utils.Utils;
 import com.dat3m.dartagnan.wmm.Execution;
 import com.dat3m.dartagnan.wmm.relation.Relation;
-import com.dat3m.dartagnan.wmm.relation.basic.BasicRelation;
-import com.dat3m.dartagnan.wmm.relation.basic.BasisExecRelation;
 import com.dat3m.dartagnan.wmm.relation.basic.TemplateBasicRelation;
 import com.dat3m.dartagnan.wmm.relation.basic.TemplateExecBasicRelation;
-import static com.dat3m.dartagnan.wmm.relation.binary.TemplateRelation.PREFIX;
-import com.microsoft.z3.BoolExpr;
-import com.microsoft.z3.Context;
-import com.microsoft.z3.Z3Exception;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 

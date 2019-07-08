@@ -9,8 +9,8 @@ package com.dat3m.aramis;
  *
  * @author Florian Furbach
  */
-import com.dat3m.aramis.wmm.CandidateAxiom;
-import com.dat3m.aramis.wmm.Consistent;
+import com.dat3m.dartagnan.wmm.axiom.CandidateAxiom;
+import com.dat3m.dartagnan.wmm.Consistent;
 import com.dat3m.dartagnan.parsers.program.ProgramParser;
 import com.microsoft.z3.BoolExpr;
 import java.io.File;
@@ -24,6 +24,7 @@ import com.microsoft.z3.Z3Exception;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 import com.dat3m.dartagnan.program.Program;
+import com.dat3m.dartagnan.wmm.CandidateModel;
 import com.dat3m.dartagnan.wmm.Wmm;
 import com.dat3m.dartagnan.wmm.utils.Arch;
 import com.dat3m.dartagnan.wmm.utils.Mode;
@@ -123,10 +124,12 @@ public class Aramis {
         options.addOption(targetOpt);
 
         Option basicOpt = new Option("b", "basicrelations", true, "The basic relations the model uses");
-        targetOpt.setRequired(false);
-        options.addOption(targetOpt);
+        basicOpt.setRequired(false);
+        options.addOption(basicOpt);
 
-        options.addOption(new Option("unroll", true, "Unrolling steps"));
+        Option unrollOpt = new Option("unroll", true, "Unrolling steps");
+        unrollOpt.setRequired(false);
+        options.addOption(unrollOpt);
 
         Option modeOption = new Option("m", "mode", true, "Encoding mode {knastertarski|idl|kleene}");
         options.addOption(modeOption);
@@ -219,11 +222,11 @@ public class Aramis {
      * @return
      */
     private static boolean checkCandidate(CandidateAxiom ax, Program p) {
-        Wmm tempmodel = new Wmm();
+        CandidateModel tempmodel = new CandidateModel(RelationCandidates.getRepository(), negPrograms.size());
         tempmodel.addAxiom(ax);
         Solver s = solvers.get(p);
         s.push();
-        s.add(tempmodel.encode(p, ctx, mode, alias));
+        s.add(tempmodel.encode(p, RelationCandidates.getMaxpairs(), ctx, mode, alias));
         s.add(tempmodel.consistent(p, ctx));
         Status sat = s.check();
         s.pop();
@@ -240,7 +243,6 @@ public class Aramis {
 
             if (!filepath.endsWith("pts") && !filepath.endsWith("litmus")) {
                 Log.warning("Unrecognized program format for " + filepath);
-
             } else {
                 Log.fine("Positive litmus test: " + filepath);
                 Program p = new ProgramParser().parse(new File(filepath));
@@ -248,8 +250,8 @@ public class Aramis {
                     Log.warning("Assert is required for Dartagnan tests");
                 }
                 posPrograms.add(p);
-                solvers.put(p, ctx.mkSolver());
-                Solver s = solvers.get(p);
+                Solver s =ctx.mkSolver();
+                solvers.put(p, s);
                 p.unroll(steps, 0);
                 nrOfEvents = p.compile(target, nrOfEvents);
                 BoolExpr temp = p.getAss().encode(ctx);
@@ -258,12 +260,12 @@ public class Aramis {
                 }
                 temp = ctx.mkAnd(temp, p.encodeCF(ctx));
                 temp = ctx.mkAnd(temp, p.encodeFinalRegisterValues(ctx));
+                temp = ctx.mkAnd(temp, new Wmm().encode(p, ctx, mode, alias));
                 s.add(temp);
                 solCEGIS.add(temp);
             }
-
         }
-
+        
         //parse neg tests
         negPrograms = new ArrayList<>(negativeDir.listFiles().length);
         for (File listFile : negativeDir.listFiles()) {
@@ -288,6 +290,7 @@ public class Aramis {
                 }
                 temp = ctx.mkAnd(temp, p.encodeCF(ctx));
                 temp = ctx.mkAnd(temp, p.encodeFinalRegisterValues(ctx));
+                temp = ctx.mkAnd(temp, new Wmm().encode(p, ctx, mode, alias));
                 s.add(temp);
             }
 

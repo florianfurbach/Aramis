@@ -63,6 +63,14 @@ public class RelTrans extends UnaryRelation {
     }
 
     @Override
+    public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode) {
+        super.initialise(program, maxpairs, ctx, mode); //To change body of generated methods, choose Tools | Templates.
+        transitiveReachabilityMap=r1.getMaxTupleSet().transMap();
+    }
+
+    
+    
+    @Override
     public void addEncodeTupleSet(TupleSet tuples){
         TupleSet activeSet = new TupleSet();
         activeSet.addAll(tuples);

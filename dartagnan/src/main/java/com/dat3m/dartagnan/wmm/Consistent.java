@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.dat3m.aramis.wmm;
+package com.dat3m.dartagnan.wmm;
 
 /**
  *

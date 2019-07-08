@@ -110,4 +110,11 @@ public class TemplateBasicRelation extends Relation {
         return TemplateBasicRelation.Baserels;
     }
 
+    @Override
+    public void addEncodeTupleSet(TupleSet tuples) {
+        encodeTupleSet=getMaxTupleSet();
+    }
+    
+    
+
 }

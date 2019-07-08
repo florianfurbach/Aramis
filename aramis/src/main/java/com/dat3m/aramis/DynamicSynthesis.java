@@ -14,8 +14,8 @@ import static com.dat3m.aramis.Aramis.mode;
 import static com.dat3m.aramis.Aramis.negPrograms;
 import static com.dat3m.aramis.Aramis.posPrograms;
 import static com.dat3m.aramis.Aramis.solvers;
-import com.dat3m.aramis.wmm.CandidateAxiom;
-import com.dat3m.aramis.wmm.CandidateModel;
+import com.dat3m.dartagnan.wmm.axiom.CandidateAxiom;
+import com.dat3m.dartagnan.wmm.CandidateModel;
 import com.dat3m.dartagnan.program.Program;
 import com.dat3m.dartagnan.wmm.Wmm;
 import com.microsoft.z3.Solver;
@@ -28,9 +28,10 @@ import java.util.logging.Level;
  */
 public class DynamicSynthesis {
 
-    private static final CandidateModel model = new CandidateModel();
+    private static CandidateModel model;
 
     protected static Wmm start(boolean cegis) {
+        model=new CandidateModel(candidates.getRepository(), negPrograms.size());
         if (!cegis) {
             candidates.addBasicrels();
         }
@@ -38,14 +39,14 @@ public class DynamicSynthesis {
         boolean finished = false;
         //repeatedly check and expand list:
         while (!finished) {
-            Log.warning("Starting Sketch Based Testing Phase...");
-            boolean covered = true;
+            Log.warning("Starting Dynamic Testing Phase...");
+            boolean allNEGScovered = true;
             for (int currentneg = 0; currentneg < negPrograms.size(); currentneg++) {
                 if (firstCandidates[currentneg] == null) {
-                    covered = false;
+                    allNEGScovered = false;
                 }
             }
-            if (covered) {
+            if (allNEGScovered) {
                 //use all new relations as potential starting points for dyn. synthesis
                 for (int startingpoint = candidates.size() - 1; startingpoint >= candidates.unchecked; startingpoint--) {
                     CandidateAxiom ax = candidates.get(startingpoint);
@@ -88,7 +89,7 @@ public class DynamicSynthesis {
             Log.log(Level.FINER, "Checking pos {0}", p.getName());
             Solver s = solvers.get(p);
             s.push();
-            s.add(model.encode(p, ctx, mode, alias));
+            s.add(model.encode(p, RelationCandidates.getMaxpairs(), ctx, mode, alias));
             s.add(model.consistent(p, ctx));
             Status sat = s.check();
             s.pop();

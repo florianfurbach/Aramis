@@ -48,6 +48,7 @@ public class RelTransRef extends RelTrans {
         transEncodeTupleSet = new TupleSet();
     }
 
+
     @Override
     public TupleSet getMaxTupleSet(){
         if(maxTupleSet == null){

@@ -11,6 +11,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static com.dat3m.dartagnan.utils.Utils.edge;
+import com.dat3m.dartagnan.wmm.Execution;
+import com.dat3m.dartagnan.wmm.relation.basic.BasisExecRelation;
+import com.dat3m.dartagnan.wmm.utils.RelationRepository;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +24,8 @@ import java.util.Map;
 public abstract class Relation {
 
     public static boolean PostFixApprox = false;
+    
+    public static Execution Exec=null;
 
     protected String name;
     protected String term;
@@ -68,6 +73,48 @@ public abstract class Relation {
     }
     
     /**
+     *Adds the relation and all its children to the repository.
+     * @param rep
+     * @return true if the relation was not in the repository
+     */
+    public boolean addRelations(RelationRepository rep){
+        if(!rep.getRelations().contains(this)){
+            rep.addRelation(this);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Defines the may pairs according to the given execution
+     * @param exec
+     * @return
+     */
+    protected boolean setMaxPairs(Execution exec){
+        for (Relation relation : exec.getRelations()) {
+            BasisExecRelation brel= (BasisExecRelation) relation;
+            if(brel.getOriginalName().equals(this.getName())) {
+                maxTupleSet=brel.getMaxTupleSet();
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Recursively initializes relations the normal way 
+     * except for those that occur in the execution (denoted by setMaxPairs), 
+     * here it uses the pairs from the execution
+     * @param execution
+     * @param ctx
+     * @param mode
+     */
+    public void initialise(Execution execution, Context ctx, Mode mode) {
+        this.initialise(execution.getProgram(), ctx, mode);
+            setMaxPairs(execution);
+    }
+    
+    /**
      * Initializes the relation with a given maxTupleSet, this is used by Aramis where we switch programs often and we want to avoid recomputing it.
      * @param program
      * @param maxTupleSet
@@ -76,29 +123,38 @@ public abstract class Relation {
      */
     public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode){
         this.initialise(program, ctx, mode);
-        if(maxpairs.get(this)==null) maxpairs.put(this, new HashMap<>());
-        if(maxpairs.get(this).get(program)==null)maxpairs.get(this).put(program, this.getMaxTupleSet());
+        if(maxpairs.get(this)==null) maxpairs.put(this, new HashMap<>()); 
+        if(maxpairs.get(this).get(program)==null) maxpairs.get(this).put(program, this.getMaxTupleSet());
         this.maxTupleSet = maxpairs.get(this).get(program);
-        this.isEncoded = false;
-        encodeTupleSet = new TupleSet();
+        //this.isEncoded = false;
+        //encodeTupleSet = new TupleSet();
     }
     
     public BoolExpr encode(Program p, TupleSet set, Context ctx, Mode mode){
-        Program ptemp=this.program;
-        Context ctxtemp=this.ctx;
-        TupleSet encodedtemp=this.encodeTupleSet;
-        Mode mtemp=this.mode;
-        this.program=p;
-        this.ctx=ctx;
-        this.mode=mode;
-        this.encodeTupleSet=set;
+        this.initialise(program, ctx, mode);
+        //this.encodeTupleSet=set;
+        this.getMaxTupleSet();
+        this.addEncodeTupleSet(set);
         BoolExpr value=this.encode();
-        this.program=ptemp;
-        this.ctx=ctxtemp;
-        this.mode=mode;
-        this.encodeTupleSet=encodedtemp;
         return value;
     }
+//    public BoolExpr encode(Program p, TupleSet set, Context ctx, Mode mode){
+//        Program ptemp=this.program;
+//        Context ctxtemp=this.ctx;
+//        TupleSet encodedtemp=this.encodeTupleSet;
+//        Mode mtemp=this.mode;
+//        this.program=p;
+//        this.ctx=ctx;
+//        this.mode=mode;
+//        this.encodeTupleSet=set;
+//        BoolExpr value=this.encode();
+//        this.program=ptemp;
+//        this.ctx=ctxtemp;
+//        this.mode=mode;
+//        this.encodeTupleSet=encodedtemp;
+//        return value;
+//    }
+
     
     public abstract TupleSet getMaxTupleSet();
 
@@ -205,4 +261,5 @@ public abstract class Relation {
         }
         return enc;
     }
+    
 }

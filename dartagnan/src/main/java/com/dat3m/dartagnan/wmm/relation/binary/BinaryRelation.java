@@ -4,7 +4,11 @@ import com.dat3m.dartagnan.wmm.utils.Mode;
 import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Context;
 import com.dat3m.dartagnan.program.Program;
+import com.dat3m.dartagnan.wmm.Execution;
 import com.dat3m.dartagnan.wmm.relation.Relation;
+import static com.dat3m.dartagnan.wmm.relation.Relation.Exec;
+import com.dat3m.dartagnan.wmm.relation.basic.BasisExecRelation;
+import com.dat3m.dartagnan.wmm.utils.RelationRepository;
 import com.dat3m.dartagnan.wmm.utils.TupleSet;
 import java.util.Map;
 
@@ -47,6 +51,27 @@ public abstract class BinaryRelation extends Relation {
         lastEncodedIteration = -1;
     }
 
+    @Override
+    public boolean addRelations(RelationRepository rep) {
+        if(super.addRelations(rep)){
+            r1.addRelations(rep);
+            r2.addRelations(rep);
+            return true;
+        }
+        return false;
+    }
+
+    
+    
+    @Override
+        public void initialise(Execution execution, Context ctx, Mode mode) {
+        this.initialise(execution.getProgram(), ctx, mode);
+            if(!setMaxPairs(execution)){
+                r1.initialise(execution, ctx, mode);
+                r2.initialise(execution, ctx, mode);
+            }
+    }
+    
     @Override
     public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode) {
         r1.initialise(program, maxpairs, ctx, mode);

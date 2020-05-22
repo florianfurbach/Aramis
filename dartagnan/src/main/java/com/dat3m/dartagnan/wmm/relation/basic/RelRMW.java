@@ -18,10 +18,14 @@ import com.microsoft.z3.Context;
 
 import static com.dat3m.dartagnan.utils.Utils.edge;
 import com.dat3m.dartagnan.wmm.relation.Relation;
+import java.util.HashMap;
 import java.util.Map;
 
 public class RelRMW extends BasicRelation {
-
+    
+    //for maxpairinit:
+    private Map<Program, TupleSet> basemax=new HashMap<>();
+    
     private final FilterAbstract loadFilter  = FilterIntersection.get(
             FilterBasic.get(EType.EXCL),
             FilterBasic.get(EType.READ)
@@ -48,9 +52,8 @@ public class RelRMW extends BasicRelation {
 
     @Override
     public void initialise(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode) {
-        super.initialise(program, ctx, mode);
-        this.baseMaxTupleSet = null;
-        getMaxTupleSet();
+        super.initialise(program, maxpairs, ctx, mode);
+        this.baseMaxTupleSet=basemax.get(program);        
     }
 
     
@@ -76,6 +79,7 @@ public class RelRMW extends BasicRelation {
                     }
                 }
             }
+            basemax.put(program, baseMaxTupleSet);
         }
         return maxTupleSet;
     }

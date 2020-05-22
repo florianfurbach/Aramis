@@ -9,6 +9,7 @@ package com.dat3m.aramis;
  *
  * @author Florian Furbach
  */
+import com.dat3m.dartagnan.parsers.cat.ParserCat;
 import com.dat3m.dartagnan.wmm.axiom.CandidateAxiom;
 import com.dat3m.dartagnan.wmm.Consistent;
 import com.dat3m.dartagnan.parsers.program.ProgramParser;
@@ -25,77 +26,80 @@ import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 import com.dat3m.dartagnan.program.Program;
 import com.dat3m.dartagnan.wmm.CandidateModel;
+import com.dat3m.dartagnan.wmm.Execution;
 import com.dat3m.dartagnan.wmm.Wmm;
+import com.dat3m.dartagnan.wmm.relation.Relation;
+import com.dat3m.dartagnan.wmm.relation.basic.TemplateBasicRelation;
 import com.dat3m.dartagnan.wmm.utils.Arch;
 import com.dat3m.dartagnan.wmm.utils.Mode;
 import com.dat3m.dartagnan.wmm.utils.RelationRepository;
 import com.dat3m.dartagnan.wmm.utils.alias.Alias;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @SuppressWarnings("deprecation")
 public class Aramis {
 
-    protected static final Logger Log = Logger.getLogger(Aramis.class.getName());
-    protected static CandidateAxiom[] firstCandidates;
-    private static CandidateAxiom[] lastNegCandidates;
+    protected static final Logger Log = Logger.getLogger("");
+    protected static Map<Execution, CandidateAxiom> firstCandidates = new HashMap<>();
+    private static Map<Execution, CandidateAxiom> lastNegCandidates = new HashMap<>();
     protected static Mode mode;
     protected static Alias alias;
+    private static Arch target;
+    private static int steps = 1;
     protected static final RelationCandidates candidates = new RelationCandidates();
     public static ArrayList<Program> posPrograms;
     public static ArrayList<Program> negPrograms;
     private static int nrOfEvents = 0;
-    private static ArrayList<Solver> posSolvers;
-    private static ArrayList<Solver> negSolvers;
     static final HashMap<Program, Solver> solvers = new HashMap<>();
     protected static final Context ctx = new Context();
-    //private static ArrayList<CandidateAxiom> currentAxioms;
     public static Solver solCEGIS;
-    public static ArrayList<BoolExpr> negExprs;
+    private static RelationRepository baserelrep = new RelationRepository();
+    private static ArrayList<String> posfilePaths;
+    public static int nrOfSMTcalls = 0;
+    private static int maxAxioms = 100;
+    private static boolean rememberMayPairs = true;
+
+    public static boolean isRememberMayPairs() {
+        return rememberMayPairs;
+    }
+    public static int getMaxAxioms() {
+        return maxAxioms;
+    }
 
     /**
-     * Checks which Negs fail ax and updates the pointer.
+     * Checks which Neg Executions fail ax and updates the pointer.
      *
      * @param ax
      */
     protected static void computeNegs(CandidateAxiom ax) {
-        for (int negPr = 0; negPr < negPrograms.size(); negPr++) {
-            Program negProgram = negPrograms.get(negPr);
-
-            //If the test outcome is not known, then compute it
-            if (ax.neg[negPr] != Consistent.INCONSISTENT && ax.neg[negPr] != Consistent.CONSISTENT) {
-                if (checkCandidate(ax, negProgram)) {
-                    ax.neg[negPr] = Consistent.CONSISTENT;
+        for (Execution execution : Execution.getExecutions()) {
+            if (!ax.getNegCons().contains(execution) && !ax.getNegIncons().contains(execution)) {
+                if (checkCandidate(ax, execution)) {
+                    ax.getNegCons().add(execution);
                 } else {
-                    ax.neg[negPr] = Consistent.INCONSISTENT;
+                    ax.getNegIncons().add(execution);
                 }
             }
+        }
 
-            //if the test fails store ax in the linked list of axioms where the test fails for the dynamic synthesis
-            if (ax.neg[negPr] == Consistent.INCONSISTENT) {
-                ax.relevant = true;
-                if (firstCandidates[negPr] == null) {
-                    firstCandidates[negPr] = ax;
-                } else {
-                    lastNegCandidates[negPr].next[negPr] = ax;
-                }
-                lastNegCandidates[negPr] = ax;
+        for (Execution negIncon : ax.getNegIncons()) {
+            ax.relevant = true;
+            if (firstCandidates.get(negIncon) == null) {
+                firstCandidates.put(negIncon, ax);
+            } else {
+                lastNegCandidates.get(negIncon).setNext(negIncon, ax);
             }
-
+            lastNegCandidates.put(negIncon, ax);
         }
     }
 
     public static void main(String[] args) throws Z3Exception, IOException {
-        Log.setLevel(Level.ALL);
-        //ConsoleHandler handler = new ConsoleHandler();
-        ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
-
-        // Publish this level
-        //handler.setLevel(Level.FINEST);
-        //Log.addHandler(handler);
-        Log.info("Starting...");
 
         //Command line options:
         Options options = new Options();
@@ -108,13 +112,25 @@ public class Aramis {
         neg.setRequired(true);
         options.addOption(neg);
 
-        Option axs = new Option("ax", "axioms", true, "Number of expected Axioms in the model to be synthesized");
+        Option axs = new Option("c", "constraints", true, "Bound on the number of constraints in the synthesized model");
         axs.setRequired(false);
         options.addOption(axs);
 
-        Option cegis = new Option("cegis", false, "Using CEGIS");
-        cegis.setRequired(false);
-        options.addOption(cegis);
+//        Option cegis = new Option("cegis", false, "Using CEGIS");
+//        cegis.setRequired(false);
+//        options.addOption(cegis);
+
+        Option dyn = new Option("dynamic", false, "Using dynamic programming by storing may pairs");
+        dyn.setRequired(false);
+        options.addOption(dyn);
+        
+        Option partialmodel = new Option("model", false, "Using CEGIS");
+        partialmodel.setRequired(false);
+        options.addOption(partialmodel);
+
+        Option verbose = new Option("v", "verbose", false, "Printing more information");
+        verbose.setRequired(false);
+        options.addOption(verbose);
 
         Option aliasOption = new Option("a", "alias", true, "Type of alias analysis {none|andersen|cfs}");
         options.addOption(aliasOption);
@@ -126,6 +142,10 @@ public class Aramis {
         Option basicOpt = new Option("b", "basicrelations", true, "The basic relations the model uses");
         basicOpt.setRequired(false);
         options.addOption(basicOpt);
+
+        Option minusOpt = new Option("mr", "minusrelations", true, "The relations to be used by the operator on relations setminus.");
+        minusOpt.setRequired(false);
+        options.addOption(minusOpt);
 
         Option unrollOpt = new Option("unroll", true, "Unrolling steps");
         unrollOpt.setRequired(false);
@@ -142,53 +162,71 @@ public class Aramis {
             System.exit(1);
             return;
         }
+
+        if (cmd.hasOption("verbose")) {
+            Log.setLevel(Level.ALL);
+            for (Handler handler : Log.getHandlers()) {
+                handler.setLevel(Level.ALL);
+            }
+        } else {
+            Log.setLevel(Level.ALL);
+            for (Handler handler : Log.getHandlers()) {
+                handler.setLevel(Level.OFF);
+            }
+            Log.setLevel(Level.OFF);
+        }
+
+        //ConsoleHandler handler = new ConsoleHandler();
+        ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+
+        // Publish this level
+        //handler.setLevel(Level.FINEST);
+        //Log.addHandler(handler);
+        Log.info("Starting...");
+
+        rememberMayPairs=cmd.hasOption("dynamic");
+        if(rememberMayPairs)System.out.println("Using dynamic programming.");
+        else System.out.println("Not using dynamic programming.");
+
         mode = Mode.get(cmd.getOptionValue("mode"));
         alias = Alias.get(cmd.getOptionValue("alias"));
 
-        Arch target = Arch.get(cmd.getOptionValue("target"));
+        target = Arch.get(cmd.getOptionValue("target"));
         if (target == null) {
             System.out.println("Compilation target cannot be infered");
             System.exit(0);
             return;
         }
 
-        int steps = 1;
+        steps = 1;
         if (cmd.hasOption("unroll")) {
             steps = Integer.parseInt(cmd.getOptionValue("unroll"));
         }
         if (cmd.hasOption("basicrelations")) {
             String[] basics = cmd.getOptionValue("basicrelations").split(" ");
-            for (String basic : basics) {
-                RelationRepository rep = new RelationRepository();
-                if (rep.getRelation(basic) == null) {
-                    System.out.println("Relation " + basic + " cannot be infered");
-                    System.exit(0);
-                    return;
-                }
-            }
-            RelationCandidates.baserels=basics;
+            TemplateBasicRelation.setBaserelnames(Arrays.asList(basics));
+            //RelationCandidates.baserels=basics;
         }
-        
-        parsePrograms(new File(cmd.getOptionValue("positive")), new File(cmd.getOptionValue("negative")), target, steps);
-
-        firstCandidates = new CandidateAxiom[negPrograms.size()];
-        lastNegCandidates = new CandidateAxiom[negPrograms.size()];
+        TemplateBasicRelation.initiateBaseAndMinusrels(baserelrep);
+        Wmm inputmodel = new Wmm();
+        if (cmd.hasOption("model")) {
+            inputmodel = new ParserCat().parse(new File(cmd.getOptionValue("model")));
+        }
+        parsePrograms(new File(cmd.getOptionValue("positive")), new File(cmd.getOptionValue("negative")), inputmodel, target, steps);
 
         //Sketch based synthesis:
-        if (cmd.hasOption("ax")) {
-            int nrOfAxioms = Integer.parseInt(cmd.getOptionValue("ax"));
-            Wmm m = StaticSynthesis.start(nrOfAxioms, cmd.hasOption("cegis"));
-            System.out.println("Found Model: " + m.toString());
-        } //Dynamic synthesis:
-        else {
-            Log.log(Level.WARNING, "Dynamic Synthesis:  Pos: {0}. Neg: {1}", new Object[]{posPrograms.size(), negPrograms.size()});
-            DynamicSynthesis.start(cmd.hasOption("cegis"));
-
+        if (cmd.hasOption("constraints")) {
+            maxAxioms = Integer.parseInt(cmd.getOptionValue("constraints"));
+            System.out.println("Bound on the number of constraints in the synthesized model: " + maxAxioms);
         }
+
+        //Dynamic synthesis:
+        //Log.log(Level.WARNING, "Dynamic Synthesis:  Pos: {0}. Neg: {1}", new Object[]{posPrograms.size(), negPrograms.size()});
+        DynamicSynthesis.start(cmd.hasOption("cegis"));
     }
 
     /**
-     * Checks ax for consistency against all progs.
+     * Checks ax for consistency against all pos progs and neg execs.
      *
      * @param ax
      * @return true if all pos pass
@@ -196,21 +234,28 @@ public class Aramis {
     protected static boolean checkCandidate(CandidateAxiom ax) {
         for (int i = 0; i < posPrograms.size(); i++) {
             if (ax.pos[i] == Consistent.INCONSISTENT) {
-                ax.consistent = false;
+                ax.setConsistent(false);
                 return false;
             }
+        }
+        for (int i = 0; i < posPrograms.size(); i++) {
             if (ax.pos[i] != Consistent.CONSISTENT) {
-                if (checkCandidate(ax, posPrograms.get(i))) {
+                Log.finest("Testing " + ax.getRel().getName() + " " + posPrograms.get(i).getName());
+                if (checkCandidate(ax, i)) {
                     ax.pos[i] = Consistent.CONSISTENT;
                 } else {
                     ax.pos[i] = Consistent.INCONSISTENT;
-                    ax.consistent = false;
+                    ax.setConsistent(false);
                     return false;
                 }
             }
         }
-        ax.consistent = true;
+        ax.setConsistent(true);
         computeNegs(ax);
+        Log.fine("Relation is relevant: " + ax.relevant);
+        if (ax.relevant) {
+            DynamicSynthesis.initChecking();
+        };
         return true;
     }
 
@@ -221,22 +266,40 @@ public class Aramis {
      * @param p
      * @return
      */
-    private static boolean checkCandidate(CandidateAxiom ax, Program p) {
-        CandidateModel tempmodel = new CandidateModel(RelationCandidates.getRepository(), negPrograms.size());
-        tempmodel.addAxiom(ax);
+    private static boolean checkCandidate(CandidateAxiom ax, int i) {
+        Program p = posPrograms.get(i);
+        //boolean oldresult=oldcheckCandidate(ax, i);
         Solver s = solvers.get(p);
         s.push();
-        s.add(tempmodel.encode(p, RelationCandidates.getMaxpairs(), ctx, mode, alias));
+        CandidateModel tempmodel = null;
+        if (rememberMayPairs) {
+            tempmodel = new CandidateModel(RelationCandidates.getRepository());
+            tempmodel.addAxiom(ax);
+            s.add(tempmodel.encode(p, RelationCandidates.getMaxpairs(), ctx, mode, alias));
+        } else {
+            RelationRepository reptemp=new RelationRepository();
+            ax.getRel().addRelations(reptemp);
+            tempmodel=new CandidateModel(reptemp);
+            tempmodel.addAxiom(ax);
+            s.add(tempmodel.encode(p, ctx, mode, alias));
+        }
         s.add(tempmodel.consistent(p, ctx));
+        nrOfSMTcalls++;
         Status sat = s.check();
         s.pop();
-        return (sat == Status.SATISFIABLE);
+        Log.finest("testing: " + ax.getRel().toString() + p.getName() + " " + sat);
+        boolean result = (sat == Status.SATISFIABLE);
+//        if(result!=oldresult) {
+//            System.err.println("Result changed to: "+result);
+//            System.exit(1);
+//        }
+        return (result);
     }
 
-    private static void parsePrograms(File positiveDir, File negativeDir, Arch target, int steps) throws IOException {
+    private static void parsePrograms(File positiveDir, File negativeDir, Wmm model, Arch target, int steps) throws IOException {
         //parse pos tests
         posPrograms = new ArrayList<>(positiveDir.listFiles().length);
-        posSolvers = new ArrayList<>(positiveDir.listFiles().length);
+        posfilePaths = new ArrayList<>(positiveDir.listFiles().length);
         solCEGIS = ctx.mkSolver();
         for (File listFile : positiveDir.listFiles()) {
             String filepath = listFile.getPath();
@@ -245,14 +308,19 @@ public class Aramis {
                 Log.warning("Unrecognized program format for " + filepath);
             } else {
                 Log.fine("Positive litmus test: " + filepath);
+                posfilePaths.add(filepath);
                 Program p = new ProgramParser().parse(new File(filepath));
                 if (p.getAss() == null) {
                     Log.warning("Assert is required for Dartagnan tests");
                 }
                 posPrograms.add(p);
-                Solver s =ctx.mkSolver();
+                Solver s = ctx.mkSolver();
                 solvers.put(p, s);
                 p.unroll(steps, 0);
+                Arch mytarget = target;
+                if (p.getArch() != null) {
+                    mytarget = p.getArch();
+                }
                 nrOfEvents = p.compile(target, nrOfEvents);
                 BoolExpr temp = p.getAss().encode(ctx);
                 if (p.getAssFilter() != null) {
@@ -260,28 +328,28 @@ public class Aramis {
                 }
                 temp = ctx.mkAnd(temp, p.encodeCF(ctx));
                 temp = ctx.mkAnd(temp, p.encodeFinalRegisterValues(ctx));
-                temp = ctx.mkAnd(temp, new Wmm().encode(p, ctx, mode, alias));
+                temp = ctx.mkAnd(temp, model.encode(p, ctx, mode, alias));
                 s.add(temp);
                 solCEGIS.add(temp);
             }
         }
-        
+        int nrOfExecs = 0;
         //parse neg tests
         negPrograms = new ArrayList<>(negativeDir.listFiles().length);
+        Log.info("Used base relations: " + baserelrep.getRelations());
         for (File listFile : negativeDir.listFiles()) {
             String filepath = listFile.getPath();
             if (!filepath.endsWith("pts") && !filepath.endsWith("litmus")) {
                 Log.warning("Unrecognized program format for " + filepath);
 
             } else {
-                Log.fine("Positive litmus test: " + filepath);
+                Log.fine("Negative litmus test: " + filepath);
                 Program p = new ProgramParser().parse(new File(filepath));
                 if (p.getAss() == null) {
                     Log.warning("Assert is required for Dartagnan tests");
                 }
                 negPrograms.add(p);
-                solvers.put(p, ctx.mkSolver());
-                Solver s = solvers.get(p);
+                Solver s = ctx.mkSolver();
                 p.unroll(steps, 0);
                 nrOfEvents = p.compile(target, nrOfEvents);
                 BoolExpr temp = p.getAss().encode(ctx);
@@ -290,10 +358,49 @@ public class Aramis {
                 }
                 temp = ctx.mkAnd(temp, p.encodeCF(ctx));
                 temp = ctx.mkAnd(temp, p.encodeFinalRegisterValues(ctx));
-                temp = ctx.mkAnd(temp, new Wmm().encode(p, ctx, mode, alias));
+                temp = ctx.mkAnd(temp, model.encode(p, ctx, mode, alias));
+                for (Relation baserel : baserelrep.getRelations()) {
+                    baserel.initialise(p, ctx, mode);
+                }
+                for (Relation baserel : baserelrep.getRelations()) {
+                    baserel.addEncodeTupleSet(baserel.getMaxTupleSet());
+                    temp = ctx.mkAnd(temp, baserel.encode());
+                }
                 s.add(temp);
+                Status sat = s.check();
+                nrOfSMTcalls++;
+                while (sat == Status.SATISFIABLE) {
+                    //encode execution to be avoided:
+                    //log.info("Adding new execution " + prefix);
+                    //TODO: remove oldexec
+                    String oldexec = "";
+                    Execution exec = new Execution(p, s.getModel(), ctx);
+                    nrOfExecs++;
+                    candidates.add(exec);
+                    Log.fine(exec.toString());
+                    s.add(ctx.mkNot(exec.encodeExecOriginal()));
+                    oldexec = exec.toString();
+                    sat = s.check();
+                    nrOfSMTcalls++;
+                }
             }
 
         }
+        //Log.info("Number of NEG Executions: "+nrOfExecs);
+        System.out.println("Size of POS: " + posPrograms.size());
+        System.out.println("Size of NEG: " + negPrograms.size());
+        System.out.println("Number of NEG Executions: " + nrOfExecs);
+        System.out.println("Basic relations in use: " + TemplateBasicRelation.getBaserels().toString());
+        System.out.println("Relations that occur in Setminus: " + TemplateBasicRelation.getMinusrels().toString());
+
+    }
+
+    public static boolean checkCandidate(CandidateAxiom ax, Execution execution) {
+        ax.getRel().initialise(execution, ctx, mode);
+        CandidateAxiom.setEnCodingExecMode(true);
+        boolean result = ax.getEncodeTupleSet().isEmpty();
+        CandidateAxiom.setEnCodingExecMode(false);
+        return result;
+
     }
 }

@@ -28,7 +28,7 @@ public class Dartagnan {
 
         Options options = new Options();
 
-        Option inputOption = new Option("i", "input", true, "Path to the file with input program");
+        Option inputOption = new Option("i", "input", true, "Pathff to the file with input program");
         inputOption.setRequired(true);
         options.addOption(inputOption);
 
@@ -140,9 +140,9 @@ public class Dartagnan {
         solver.add(wmm.consistent(program, ctx));
 
         boolean result = (solver.check() == Status.SATISFIABLE);
-        if(program.getAss().getInvert()){
-            result = !result;
-        }
+//        if(program.getAss().getInvert()){
+//            result = !result;
+//        }
         return result;
     }
 

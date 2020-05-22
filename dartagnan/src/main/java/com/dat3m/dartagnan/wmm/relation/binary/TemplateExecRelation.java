@@ -5,13 +5,11 @@
  */
 package com.dat3m.dartagnan.wmm.relation.binary;
 
-import com.dat3m.dartagnan.program.event.Event;
 import com.dat3m.dartagnan.wmm.Execution;
 import com.dat3m.dartagnan.wmm.relation.Relation;
 import com.dat3m.dartagnan.wmm.relation.basic.TemplateBasicRelation;
 import com.dat3m.dartagnan.wmm.relation.basic.TemplateExecBasicRelation;
-import java.util.Map;
-import java.util.Set;
+import com.dat3m.dartagnan.wmm.utils.TupleSet;
 
 /**
  *
@@ -21,11 +19,6 @@ public class TemplateExecRelation extends TemplateRelation{
     
     private Execution exec;
     private final String templateId;
-
-    @Override
-    protected Map<Event, Set<Event>> getBasictransmaysets() {
-        return exec.getMaxTupleSet().transMap();
-    }
 
     @Override
     protected String getID() {
@@ -43,8 +36,29 @@ public class TemplateExecRelation extends TemplateRelation{
         this.exec=exec;
         Relation r1temp;
         if(rel.r1 instanceof TemplateRelation) this.r1=new TemplateExecRelation((TemplateRelation) rel.r1, exec);
-        else if(rel.r1 instanceof TemplateBasicRelation) this.r1=new TemplateExecBasicRelation((TemplateExecBasicRelation) rel.r1, exec);
+        else if(rel.r1 instanceof TemplateBasicRelation) this.r1=new TemplateExecBasicRelation((TemplateBasicRelation) rel.r1, exec);
         if(rel.r2 instanceof TemplateRelation) this.r2=new TemplateExecRelation((TemplateRelation) rel.r2, exec);
-        else if(rel.r2 instanceof TemplateBasicRelation) this.r2=new TemplateExecBasicRelation((TemplateExecBasicRelation) rel.r2, exec);
+        else if(rel.r2 instanceof TemplateBasicRelation) this.r2=new TemplateExecBasicRelation((TemplateBasicRelation) rel.r2, exec);
+        maxTupleSet=exec.gettemplateTupleSet();
+        encodeTupleSet=maxTupleSet;        
     }
+
+    @Override
+    public TupleSet getMaxTupleSet() {
+        maxTupleSet=exec.gettemplateTupleSet();
+        encodeTupleSet=maxTupleSet;
+        return maxTupleSet;
+    }
+
+    
+    
+    @Override
+    public void addEncodeTupleSet(TupleSet tuples) {
+        getMaxTupleSet();
+        encodeTupleSet=maxTupleSet;
+        r1.addEncodeTupleSet(encodeTupleSet);
+        r2.addEncodeTupleSet(encodeTupleSet);
+    }
+    
+    
 }

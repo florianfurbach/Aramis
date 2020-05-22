@@ -6,29 +6,71 @@
 package com.dat3m.dartagnan.wmm.axiom;
 
 import com.dat3m.dartagnan.wmm.Consistent;
+import com.dat3m.dartagnan.wmm.Execution;
 import com.dat3m.dartagnan.wmm.relation.Relation;
 import com.dat3m.dartagnan.wmm.utils.TupleSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  *
  * @author Florian Furbach
  */
 public class CandidateAxiom extends Acyclic {
-
+    private static boolean enCodingExecMode=false;
     public Consistent[] pos;
-    public Consistent[] neg;
     //public HashMap<Program, Boolean> consProg = new HashMap<>();
     //Denotes whether the axiom passes all POS tests.
-    public boolean consistent = false;
+    private boolean consistent = false;
     public int position;
-    public CandidateAxiom[] next;
+    private Map<Execution, CandidateAxiom> next = new HashMap<>();
     //denotes whether the axiom fails a Neg test.
+    private Map<Execution, Consistent> neg;
 
     public boolean relevant = false;
     //when encoding a relation generated from a templaterelation to find an exec, 
     //we need to encode the whole relation for not just what we need this time.
     private boolean generatedRel = false;
     private int nrOfNEGs;
+
+    private Set<Execution> negCons = new HashSet<Execution>();
+    private Set<Execution> negIncons = new HashSet<Execution>();
+
+    public static boolean isEnCodingExecMode() {
+        return enCodingExecMode;
+    }
+
+    public static void setEnCodingExecMode(boolean enCodingExecMode) {
+        CandidateAxiom.enCodingExecMode = enCodingExecMode;
+    }
+
+    
+    
+    public boolean isConsistent() {
+        return consistent;
+    }
+
+    public void setConsistent(boolean consistent) {
+        this.consistent = consistent;
+    }
+
+    public Set<Execution> getNegCons() {
+        return negCons;
+    }
+
+    public Set<Execution> getNegIncons() {
+        return negIncons;
+    }
+
+    public CandidateAxiom getNext(Execution exec) {
+        return next.get(exec);
+    }
+
+    public void setNext(Execution exec, CandidateAxiom next) {
+        this.next.put(exec, next);
+    }
 
     public void largerthan(CandidateAxiom ax) {
         for (int i = 0; i < pos.length; i++) {
@@ -37,11 +79,9 @@ public class CandidateAxiom extends Acyclic {
                 pos[i] = ax.pos[i];
             }
         }
-        for (int i = 0; i < neg.length; i++) {
-            if (ax.neg[i] == Consistent.INCONSISTENT) {
-                neg[i] = ax.neg[i];
-            }
-        }
+        negCons.removeAll(ax.negIncons);
+        negIncons.addAll(ax.negIncons);
+
     }
 
     /**
@@ -50,11 +90,9 @@ public class CandidateAxiom extends Acyclic {
      *
      * @param rel
      */
-    public CandidateAxiom(Relation rel, int nrOfPOSs, int nrOfNEGs) {
+    public CandidateAxiom(Relation rel, int nrOfPOSs) {
         super(rel);
         this.nrOfNEGs = nrOfNEGs;
-        this.next = new CandidateAxiom[nrOfNEGs];
-        neg = new Consistent[nrOfNEGs];
         pos = new Consistent[nrOfPOSs];
     }
 
@@ -68,12 +106,10 @@ public class CandidateAxiom extends Acyclic {
      * creating the execution.
      *
      */
-    public CandidateAxiom(boolean generated, Relation rel, int nrOfPOSs, int nrOfNEGs) {
+    public CandidateAxiom(boolean generated, Relation rel, int nrOfPOSs) {
         super(rel);
         this.generatedRel = generated;
         this.nrOfNEGs = nrOfNEGs;
-        this.next = new CandidateAxiom[nrOfNEGs];
-        neg = new Consistent[nrOfNEGs];
         pos = new Consistent[nrOfPOSs];
     }
 
@@ -93,11 +129,8 @@ public class CandidateAxiom extends Acyclic {
                 pos[i] = ax.pos[i];
             }
         }
-        for (int i = 0; i < neg.length; i++) {
-            if (ax.neg[i] == Consistent.CONSISTENT) {
-                neg[i] = ax.neg[i];
-            }
-        }
+        negCons.addAll(ax.negCons);
+        negIncons.removeAll(ax.negCons);
     }
 
     /**
@@ -109,12 +142,13 @@ public class CandidateAxiom extends Acyclic {
      * firstUncovered
      */
     public int getNextpass(int firstUncovered) {
-        for (int negprog = firstUncovered; negprog < nrOfNEGs; negprog++) {
-            if (neg[negprog] != Consistent.CONSISTENT) {
-                return negprog;
+        for (int nrOfNegExec = firstUncovered; nrOfNegExec < Execution.getExecutions().size(); nrOfNegExec++) {
+            if (!negCons.contains(nrOfNegExec)) {
+                return nrOfNegExec;
             }
         }
-        return nrOfNEGs;
+
+        return Execution.getExecutions().size();
     }
 
 }

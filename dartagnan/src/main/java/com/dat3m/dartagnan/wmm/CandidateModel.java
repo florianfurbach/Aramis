@@ -18,7 +18,10 @@ import com.dat3m.dartagnan.wmm.utils.alias.Alias;
 import com.microsoft.z3.BoolExpr;
 import com.microsoft.z3.Context;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 /**
  *
@@ -26,21 +29,29 @@ import java.util.Map;
  */
 public class CandidateModel extends Wmm{
 
-    private final int nrOfNEGs;
-
-    public CandidateModel(RelationRepository rep, int nrOfNEGs) {
+    private Map<Execution, CandidateAxiom> usedRelsforExecs=new HashMap<Execution, CandidateAxiom>(Execution.getExecutions().size());
+    public CandidateModel(RelationRepository rep) {
         super();
         this.relationRepository=rep;
-        this.nrOfNEGs=nrOfNEGs;
     }    
         
     public int size(){
         return getAxioms().size();
     }
     
-    public void push(CandidateAxiom ax){
+    public void push(CandidateAxiom ax, Execution exec){
+        if(!ax.getNegIncons().contains(exec)) {
+            System.out.println(exec.getId()+" not forbidden by ax "+ax.toString()+" at push()");
+            System.exit(1);
+        }
         getAxioms().add(ax);        
+        //usedRelsforExecs.put(exec, ax);
+        //for (Execution execution : ax.getNegIncons()) {
+            if(!usedRelsforExecs.containsKey(exec)) usedRelsforExecs.put(exec, ax);
+        //}
     }
+    
+    
     
     public BoolExpr encode(Program program, Map<Relation, Map<Program, TupleSet>> maxpairs, Context ctx, Mode mode, Alias alias) {
         this.program = program;
@@ -101,30 +112,38 @@ public class CandidateModel extends Wmm{
     }
     
     public boolean pop(){
-        if(getAxioms().size()<=0)return false;
+        if(getAxioms().size()<=1)return false;
         else{
-            getAxioms().remove(getAxioms().size()-1);
+            CandidateAxiom ax=(CandidateAxiom) getAxioms().get(getAxioms().size()-1);
+            boolean works=false;
+            for (Execution negIncon : ax.getNegIncons()) {
+                if(usedRelsforExecs.remove(negIncon, ax)) works=true;                
+            }
+            if(!works) {
+                System.err.println("Popping didnt remove a redundancy entry for "+ax.toString());
+                System.exit(1);
+            }
+            getAxioms().remove(ax);
             return true;
         }
     }
-    
+
     /**
      * 
      * @return the index of the next program in NEG that is still reachable according to the ax.neg info
      */
-    public int getNextPassingNeg(){
-        int negProgIndex=0;
-        while (true) {            
-            boolean temp=true;
-            if(negProgIndex>=nrOfNEGs) return negProgIndex;
+    public Execution getNextPassingNeg(){
+        int negProgIndex;
+        for (Execution execution : Execution.getExecutions()) {
+            boolean passing=true;
             for (Axiom axiom : getAxioms()) {
                 CandidateAxiom ax=(CandidateAxiom) axiom;
-                Consistent[] negProgAxiomBehavior=ax.neg;
-                if(negProgAxiomBehavior[negProgIndex]==Consistent.INCONSISTENT) temp=false;
+                Set<Execution> negAxiomBehavior=ax.getNegIncons();
+                if(negAxiomBehavior.contains(execution)) passing=false;
             }
-            if(temp)return negProgIndex;
-            negProgIndex++;
+            if(passing) return execution;
         }
+        return null;
     }
 
     /**
@@ -133,15 +152,33 @@ public class CandidateModel extends Wmm{
      * @param addingax the axiom that we consider adding.
      * @return whether the axiom has to be added.
      */
-    public boolean redundand(CandidateAxiom addingax) {
-        for (int i = 0; i < getNextPassingNeg(); i++) {
-            Consistent[] addingaxneg=addingax.neg;
-            if(addingaxneg[i]==Consistent.INCONSISTENT){
+    public boolean oldredundand(CandidateAxiom addingax) {
+        Execution temp=getNextPassingNeg();
+        for (Iterator<Execution> iterator = Execution.getExecutions().iterator(); iterator.hasNext();) {
+            Execution execution = iterator.next();
+            if(execution==temp) return false;
+            if(addingax.getNegIncons().contains(execution)){
                 for (Axiom axiom : getAxioms()) {
                     CandidateAxiom ax=(CandidateAxiom) axiom;
-                    Consistent[] axneg=ax.neg;                   
-                    if(axneg[i]==Consistent.INCONSISTENT && ax.position<=addingax.position) return true;
+                    if(ax.getNegIncons().contains(execution) && ax.position<=addingax.position) return true;
                 }
+            }
+        }
+        return false;
+    }
+    
+        /**
+     * Checks if addingax covers an earlier neg that is already covered by an axiom with a smaller number.
+     * This way we only add getAxioms() in decending order if we have the choice and we don't check models twice.
+     * @param addingax the axiom that we consider adding.
+     * @return whether the axiom has to be added.
+     */
+    public boolean redundand(CandidateAxiom addingax) {
+        Execution temp=getNextPassingNeg();
+        for (Execution negIncon : addingax.getNegIncons()) {
+            if (usedRelsforExecs.containsKey(negIncon)) {
+                CandidateAxiom oldaxiom=usedRelsforExecs.get(negIncon);
+                if(oldaxiom.position<=addingax.position) return true;
             }
         }
         return false;

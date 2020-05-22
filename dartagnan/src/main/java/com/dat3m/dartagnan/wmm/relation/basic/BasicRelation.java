@@ -5,6 +5,10 @@ import com.dat3m.dartagnan.wmm.relation.Relation;
 import com.dat3m.dartagnan.wmm.utils.Tuple;
 
 import static com.dat3m.dartagnan.utils.Utils.edge;
+import com.dat3m.dartagnan.wmm.Execution;
+import com.dat3m.dartagnan.wmm.utils.Mode;
+import com.dat3m.dartagnan.wmm.utils.TupleSet;
+import com.microsoft.z3.Context;
 
 public abstract class BasicRelation extends Relation {
 
@@ -25,4 +29,20 @@ public abstract class BasicRelation extends Relation {
         }
         return enc;
     }
+    
+    protected boolean setMaxPairs(Execution exec){
+        for (Relation relation : exec.getRelations()) {
+            BasisExecRelation brel= (BasisExecRelation) relation;
+            if(brel.originalName.equals(this.getName())) {
+                maxTupleSet=brel.getMaxTupleSet();
+                return true;
+            }
+        }
+        return false;
+    }
+        public void initialise(Execution execution, Context ctx, Mode mode) {
+        this.initialise(execution.getProgram(), ctx, mode);
+            setMaxPairs(execution);
+    }
+    
 }

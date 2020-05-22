@@ -3,4 +3,5 @@ Type=Application
 Name=Dat3M
 Comment=Dat3M
 Terminal=false
-
+Exec=java -jar -Djava.library.path=/Users/flo/Dropbox/Dat3M/lib /Users/flo/Dropbox/Dat3M/ui/target/ui-2.0.3-jar-with-dependencies.jar
+Icon=/Users/flo/Dropbox/Dat3M/ui/src/main/resources/dat3m.png

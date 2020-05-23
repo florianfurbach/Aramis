@@ -71,8 +71,6 @@
   </build>
   <modules>
     <module>dartagnan</module>
-    <module>porthos</module>
-    <module>ui</module>
     <module>aramis</module>
   </modules>
 </project>

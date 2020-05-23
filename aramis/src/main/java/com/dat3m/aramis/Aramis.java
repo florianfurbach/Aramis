@@ -141,10 +141,12 @@ public class Aramis {
 
         Option basicOpt = new Option("b", "basicrelations", true, "The basic relations the model uses");
         basicOpt.setRequired(false);
+        basicOpt.setArgs(Option.UNLIMITED_VALUES);
         options.addOption(basicOpt);
 
-        Option minusOpt = new Option("mr", "minusrelations", true, "The relations to be used by the operator on relations setminus.");
+        Option minusOpt = new Option("mr", "minusrelations", true, "The relations to be used by the operator setminus.");
         minusOpt.setRequired(false);
+        minusOpt.setArgs(Option.UNLIMITED_VALUES);
         options.addOption(minusOpt);
 
         Option unrollOpt = new Option("unroll", true, "Unrolling steps");
@@ -203,8 +205,13 @@ public class Aramis {
             steps = Integer.parseInt(cmd.getOptionValue("unroll"));
         }
         if (cmd.hasOption("basicrelations")) {
-            String[] basics = cmd.getOptionValue("basicrelations").split(" ");
+            String[] basics = cmd.getOptionValues("basicrelations");
             TemplateBasicRelation.setBaserelnames(Arrays.asList(basics));
+            //RelationCandidates.baserels=basics;
+        }
+        if (cmd.hasOption("minusrelations")) {
+            String[] minus = cmd.getOptionValues("minusrelations");
+            TemplateBasicRelation.setMinusrelnames(Arrays.asList(minus));
             //RelationCandidates.baserels=basics;
         }
         TemplateBasicRelation.initiateBaseAndMinusrels(baserelrep);

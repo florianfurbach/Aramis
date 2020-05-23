@@ -25,7 +25,8 @@ public class Dartagnan {
     public static final String TACTIC = "qfufbv";
 
     public static void main(String[] args) throws IOException {
-
+        System.err.println("Please obtain the current version of dartagnan and porthos at https://github.com/hernanponcedeleon/Dat3M/");
+        System.exit(1);
         Options options = new Options();
 
         Option inputOption = new Option("i", "input", true, "Pathff to the file with input program");

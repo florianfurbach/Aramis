@@ -1,7 +1,7 @@
 # Aramis: A memory model synthesizer
 
 <p align="center"> 
-<img src="ui/src/main/resources/dat3m.png">
+<img src="aramis.jpg" width="250">
 </p>
 
 Aramis is a prototype module for the tool suite [Dat3m](https://github.com/hernanponcedeleon/Dat3M/).
